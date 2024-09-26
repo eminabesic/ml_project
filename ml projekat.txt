@@ -1,0 +1,160 @@
+1.
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+from imblearn.over_sampling import SMOTE
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score, classification_report
+2.
+!pip install gdown
+
+3.
+import gdown
+import pandas as pd
+
+# ID fajla iz Google Drive linka
+file_id = '1Yevok0i9cszJS7lX1oQWO_l2bjRnPNnD'
+
+# Preuzimanje fajla
+gdown.download(f'https://drive.google.com/uc?id={file_id}', 'data.csv', quiet=False)
+
+# Učitavanje preuzetog CSV fajla u DataFrame
+data = pd.read_csv('data.csv')
+
+# Prikazivanje prvih nekoliko redova DataFrame-a
+data.head()
+
+4.
+# Provera broja redova
+num_rows = data.shape[0]
+
+# Ispisivanje broja redova
+print(f'Broj redova u dokumentu je: {num_rows}')
+
+5.
+# Provera `null` vrijednosti
+print(data.isnull().sum())
+
+6.
+#provjera koje sve vrijednosti work_type moze primati
+vrijednosti_work_type = data['work_type'].unique()
+vrijednosti_residence_type = data['Residence_type'].unique()
+vrijednosti_smoking_status = data['smoking_status'].unique()
+vrijednosti_gender = data['gender'].unique()
+print(vrijednosti_work_type,vrijednosti_residence_type, vrijednosti_smoking_status,vrijednosti_gender)
+7.
+#potrebno je mapirati podatke; u listu stavljam kolonu koju mapiram
+
+varlist =  ['gender']
+
+# Funkcija za mapiranje
+def gender_map(x):
+    return x.map({'Female': 2, "Male": 1, "Other": 0})
+
+# Mapiranje podataka iz dataframe-a
+data[varlist] = data[varlist].apply(gender_map)
+data.head()
+
+8.
+#potrebno je mapirati podatke; u listu stavljamo kolone koje imaju vrijednosti yes/no da dobiju vrijednosti 0/1
+
+varlist =  ['ever_married']
+
+# Funkcija za mapiranje
+def yes_no_map(x):
+    return x.map({'Yes': 1, "No": 0})
+
+# Mapiranje podataka iz dataframe-a
+data[varlist] = data[varlist].apply(yes_no_map)
+data.head()
+
+9.
+#sada treba mapirati podatke iz kolone work_type
+
+varlist =  ['work_type']
+
+# Funkcija za mapiranje
+def work_type_map(x):
+    return x.map({'Private': 4, "Self-employed": 3, "Govt_job": 2, "children": 1, "Never_worked": 0})
+
+# Mapiranje podataka iz dataframe-a
+data[varlist] = data[varlist].apply(work_type_map)
+data.head()
+10.
+#mapiranje kolone Residence_type
+varlist =  ['Residence_type']
+
+# Funkcija za mapiranje
+def residence_type_map(x):
+    return x.map({'Urban': 1, "Rural": 0})
+
+# Mapiranje podataka iz dataframe-a
+data[varlist] = data[varlist].apply(residence_type_map)
+data.head()
+11.
+prosjek_bmi = data['bmi'].mean()
+
+# Popunjavanje null vrednosti u koloni sa srednjom vrednošću
+data['bmi'].fillna(prosjek_bmi, inplace=True)
+
+# Možete ispisati prvih nekoliko redova da proverite rezultat
+print(data.head())
+
+12.
+#mapiranje podatke iz kolone smoking_status
+
+varlist =  ['smoking_status']
+
+# Funkcija za mapiranje
+def smoking_status_map(x):
+    return x.map({'formerly smoked': 3, "never smoked": 2, "smokes": 1, "Unknown": 0})
+
+# Mapiranje podataka iz dataframe-a
+data[varlist] = data[varlist].apply(smoking_status_map)
+data.head()
+13.
+#zelim da mi se random uzmu podaci da ne pocetnih 80% za trening a 20 % za test koristit cu shuffle
+from sklearn.model_selection import train_test_split
+np.random.seed(0)
+df_train, df_test = train_test_split(data, test_size=0.2, random_state=42, shuffle= True)
+df_train = df_train.reset_index(drop=True)
+df_test = df_test.reset_index(drop=True)
+
+print(f"Velicina trening skupa: {len(df_train)}")
+print(f"Velicina testnog skupa: {len(df_test)}")
+14.
+df_train.head()
+15.
+df_test.head()
+16.
+# Graficki prikaz linearne korelacije svake dvije kolone
+
+plt.figure(figsize = (16, 10))
+sns.heatmap(df_train.corr(), annot = True, cmap="YlGnBu")
+plt.show()
+17.
+# Definisanje ulaznih karakteristika  X i ciljne promenljive y za primjenu metode smote
+X = df_train.drop('stroke', axis=1)  # X ce biti sve kolone osim one koja se predvidja a to je u nasem slucaju stroke
+y = df_train['stroke']  # promjenjiva koju predvidjamo
+
+# Inicijalizacija SMOTE objekta
+smote = SMOTE(random_state=42)
+
+# Primjena SMOTE-a samo na ciljnu promenljivu y
+X_resampled, y_resampled = smote.fit_resample(X, y)
+18.
+#inicijalizacija svm modela
+svm_model = SVC(kernel='linear', random_state=42)
+
+# Treniranje SVM modela na resamplovanom trening skupu
+svm_model.fit(X_resampled, y_resampled)
+19.
+# Predviđanje na testnom skupu
+X_test = df_test.drop('stroke', axis=1)
+y_test = df_test['stroke']
+y_pred = svm_model.predict(X_test)
+20.
+# Evaluacija modela
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Tačnost modela: {accuracy}")
